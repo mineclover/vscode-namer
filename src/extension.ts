@@ -76,7 +76,7 @@ const getDocumentText = (document: vscode.TextDocument) => {
  */
 const arrayToStringTyped = (arr: string[], name: string) => {
   const types = arr.map((item) => '"' + item + '"').join(" | ");
-  const context = "export type " + name + " = " + types;
+  const context = "export type " + name + "Styles" + " = " + types;
   return context;
 };
 

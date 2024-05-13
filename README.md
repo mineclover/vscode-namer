@@ -3,4 +3,5 @@
 "CSS to Typed: create a css class type"
 "CSS to Typed: copy a css class type"
 
+vsce package patch
 code --install-extension css-to-typed-0.0.2.vsix
