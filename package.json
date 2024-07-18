@@ -16,7 +16,10 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
   "main": "./out/extension",
   "contributes": {
     "commands": [
@@ -29,7 +32,7 @@
         "title": "CSS to Typed: copy a css class type"
       },
       {
-        "command": "extension.showInferredType",
+        "command": "extension.copyInferredType",
         "title": "CSS to Typed: typescript all keys"
       }
     ]
