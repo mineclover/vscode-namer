@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import * as fs from "fs";
+import * as ts from "typescript";
 
 const uniq = (array: string[]) => [...new Set(array)];
 
@@ -117,10 +118,41 @@ export function activate(context: vscode.ExtensionContext) {
       const classes = getAllClassNames(fullText);
       // 타입 텍스트화
       const context = arrayToStringTyped(classes, name.split(".")[0]);
-
+      // 복사
       copyTextToClipboard(context);
     }
   );
+
+  // 추론된 타입 전체
+  const disposable = vscode.commands.registerCommand(
+    "extension.showInferredType",
+    () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+
+      const document = editor.document;
+      const selection = editor.selection;
+      const selectedText = document.getText(selection);
+
+      const program = ts.createProgram([document.fileName], {});
+      const sourceFile = program.getSourceFile(document.fileName);
+      const typeChecker = program.getTypeChecker();
+
+      if (sourceFile) {
+        ts.forEachChild(sourceFile, (node) => {
+          if (ts.isIdentifier(node) && node.getText() === selectedText) {
+            const type = typeChecker.getTypeAtLocation(node);
+            const typeString = typeChecker.typeToString(type);
+            vscode.window.showInformationMessage(
+              `Inferred type: ${typeString}`
+            );
+          }
+        });
+      }
+    }
+  );
+
+  context.subscriptions.push(disposable);
 
   context.subscriptions.push(clipboardType);
   context.subscriptions.push(createType);

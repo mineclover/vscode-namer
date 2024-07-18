@@ -2,7 +2,7 @@
   "name": "css-to-typed",
   "displayName": "CSS to Typed",
   "description": "css classNames export .d.ts",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "publisher": "mineclover",
   "private": true,
   "license": "MIT",
@@ -27,6 +27,10 @@
       {
         "command": "extension.clipboardType",
         "title": "CSS to Typed: copy a css class type"
+      },
+      {
+        "command": "extension.showInferredType",
+        "title": "CSS to Typed: typescript all keys"
       }
     ]
   },
@@ -37,11 +41,11 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/node": "^20.12.11",
-    "@types/vscode": "^1.74.0",
-    "@typescript-eslint/eslint-plugin": "^7.8.0",
-    "@typescript-eslint/parser": "^7.8.0",
+    "@types/node": "^20.14.11",
+    "@types/vscode": "^1.91.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.1",
+    "@typescript-eslint/parser": "^7.16.1",
     "eslint": "^8.26.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.5.3"
   }
 }
