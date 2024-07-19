@@ -244,29 +244,34 @@ async function getInferredType(
       nodeAtPosition?.kind ? ts.SyntaxKind[nodeAtPosition.kind] : "Not found"
     );
 
-    if (nodeAtPosition && ts.isIdentifier(nodeAtPosition)) {
-      const symbol = typeChecker.getSymbolAtLocation(nodeAtPosition);
-      if (symbol) {
-        const type = typeChecker.getTypeOfSymbolAtLocation(
-          symbol,
-          nodeAtPosition
-        );
-        const typeString = typeChecker.typeToString(
-          type,
-          undefined,
-          ts.TypeFormatFlags.NoTruncation |
-            ts.TypeFormatFlags.WriteArrayAsGenericType |
-            ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
-            ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
-            ts.TypeFormatFlags.InTypeAlias
-        );
+    if (nodeAtPosition) {
+      let typeNode: ts.Node | undefined = nodeAtPosition;
 
-        return typeString;
-      } else {
-        console.log("No symbol found for node");
+      // 표현식인 경우 부모 노드를 찾습니다.
+      if (ts.isExpressionStatement(nodeAtPosition)) {
+        typeNode = nodeAtPosition.expression;
       }
+
+      // 변수 선언인 경우 초기화 표현식을 찾습니다.
+      if (ts.isVariableDeclaration(typeNode) && typeNode.initializer) {
+        typeNode = typeNode.initializer;
+      }
+
+      const type = typeChecker.getTypeAtLocation(typeNode);
+      const typeString = typeChecker.typeToString(
+        type,
+        undefined,
+        ts.TypeFormatFlags.NoTruncation |
+          ts.TypeFormatFlags.WriteArrayAsGenericType |
+          ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
+          ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
+          ts.TypeFormatFlags.InTypeAlias
+      );
+
+      console.log("Inferred type:", typeString);
+      return typeString;
     } else {
-      console.log("Node is not an identifier or is undefined");
+      console.log("No node found at position");
     }
 
     return null;
@@ -354,7 +359,8 @@ function findNodeAtPosition(
 ): ts.Node | undefined {
   function find(node: ts.Node): ts.Node | undefined {
     if (node.getStart() <= offset && offset < node.getEnd()) {
-      return ts.forEachChild(node, find) || node;
+      const childNode = ts.forEachChild(node, find);
+      return childNode || node;
     }
   }
   return find(sourceFile);
