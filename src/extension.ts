@@ -155,11 +155,12 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             // 명령에 인자를 전달할 때 encodeURIComponent 사용
-            const encodedKey = encodeURIComponent(JSON.stringify([hoverKey]));
             contents.appendMarkdown(
-              `<a href="command:extension.copyInferredType?${encodedKey}">Copy Inferred Type</a>`
+              `<a href="command:cssToTyped.copyInferredType?${encodeURIComponent(
+                hoverKey
+              )}">Copy Inferred Type</a>`
             );
-            console.log(`Created hover link with key: ${encodedKey}`);
+            console.log(`Created hover link with key: ${hoverKey}`);
 
             return new vscode.Hover(contents);
           }
@@ -171,7 +172,43 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(hover);
+  const copyInferredType = vscode.commands.registerCommand(
+    "cssToTyped.copyInferredType",
+    async (hoverKey: string) => {
+      console.log("Command triggered with hover key:", hoverKey);
+      console.log("Current map contents:", [...inferredTypeMap.entries()]);
+
+      if (typeof hoverKey !== "string") {
+        console.error("Invalid hover key type:", typeof hoverKey);
+        vscode.window.showErrorMessage("Invalid hover key");
+        return;
+      }
+
+      const inferredType = inferredTypeMap.get(hoverKey);
+      if (inferredType) {
+        try {
+          await vscode.env.clipboard.writeText(inferredType);
+          vscode.window.showInformationMessage(
+            "Inferred type copied to clipboard"
+          );
+          console.log("Copied type to clipboard:", inferredType);
+
+          // 사용 후 Map에서 제거 (메모리 관리)
+          inferredTypeMap.delete(hoverKey);
+        } catch (error) {
+          console.error("Error copying to clipboard:", error);
+          vscode.window.showErrorMessage(
+            "Error copying inferred type to clipboard"
+          );
+        }
+      } else {
+        console.log("No inferred type found for key:", hoverKey);
+        vscode.window.showInformationMessage(
+          "No type could be inferred at this position"
+        );
+      }
+    }
+  );
 
   const disposable = vscode.commands.registerCommand(
     "extension.copyInferredType",
@@ -218,41 +255,8 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const copyInferredType = vscode.commands.registerCommand(
-    "extension.copyInferredType",
-    async (hoverKey: string) => {
-      try {
-        console.log("Received hover key:", hoverKey); // 디버깅용 로그
-        if (typeof hoverKey !== "string") {
-          console.error("Invalid hover key type:", typeof hoverKey);
-          vscode.window.showErrorMessage("Invalid hover key");
-          return;
-        }
-
-        const inferredType = inferredTypeMap.get(hoverKey);
-        if (inferredType) {
-          await vscode.env.clipboard.writeText(inferredType);
-          vscode.window.showInformationMessage(
-            "Inferred type copied to clipboard"
-          );
-
-          // 사용 후 Map에서 제거 (메모리 관리)
-          inferredTypeMap.delete(hoverKey);
-        } else {
-          console.log("No inferred type found for key:", hoverKey); // 디버깅용 로그
-          console.log("Current map contents:", [...inferredTypeMap.entries()]); // 디버깅용 로그
-          vscode.window.showInformationMessage(
-            "No type could be inferred at this position"
-          );
-        }
-      } catch (error) {
-        console.error("Error copying inferred type:", error);
-        vscode.window.showErrorMessage("Error copying inferred type");
-      }
-    }
-  );
-
   context.subscriptions.push(copyInferredType);
+  context.subscriptions.push(hover);
 
   context.subscriptions.push(disposable);
 
