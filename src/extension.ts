@@ -206,66 +206,75 @@ async function getInferredType(
   document: vscode.TextDocument,
   position: vscode.Position
 ): Promise<string | null> {
-  const fileName = document.fileName;
-  console.log("Processing file:", fileName);
+  try {
+    const fileName = document.fileName;
+    console.log("Processing file:", fileName);
 
-  const tsconfigPath = ts.findConfigFile(
-    path.dirname(fileName),
-    ts.sys.fileExists,
-    "tsconfig.json"
-  );
-  let compilerOptions: ts.CompilerOptions = {
-    target: ts.ScriptTarget.ESNext,
-    module: ts.ModuleKind.CommonJS,
-    strict: true,
-    esModuleInterop: true,
-    skipLibCheck: true,
-    forceConsistentCasingInFileNames: true,
-    allowJs: true,
-    checkJs: true,
-  };
+    const compilerOptions: ts.CompilerOptions = {
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.CommonJS,
+      strict: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      forceConsistentCasingInFileNames: true,
+      allowJs: true,
+      checkJs: true,
+    };
 
-  if (tsconfigPath) {
-    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-    const parsedConfig = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      path.dirname(tsconfigPath)
+    const projectRoot = path.dirname(fileName);
+    console.log("Project root:", projectRoot);
+
+    const projectFiles = getAllTypeScriptFiles(projectRoot);
+    console.log("Project files:", projectFiles);
+
+    const program = ts.createProgram(projectFiles, compilerOptions);
+    const sourceFile = program.getSourceFile(fileName);
+    const typeChecker = program.getTypeChecker();
+
+    if (!sourceFile) {
+      console.log("Source file not found");
+      return null;
+    }
+
+    const offset = document.offsetAt(position);
+    const nodeAtPosition = findNodeAtPosition(sourceFile, offset);
+
+    console.log(
+      "Node at position:",
+      nodeAtPosition?.kind ? ts.SyntaxKind[nodeAtPosition.kind] : "Not found"
     );
-    compilerOptions = { ...compilerOptions, ...parsedConfig.options };
-  }
 
-  const projectRoot = path.dirname(fileName);
-  console.log("Project root:", projectRoot);
+    if (nodeAtPosition && ts.isIdentifier(nodeAtPosition)) {
+      const symbol = typeChecker.getSymbolAtLocation(nodeAtPosition);
+      if (symbol) {
+        const type = typeChecker.getTypeOfSymbolAtLocation(
+          symbol,
+          nodeAtPosition
+        );
+        const typeString = typeChecker.typeToString(
+          type,
+          undefined,
+          ts.TypeFormatFlags.NoTruncation |
+            ts.TypeFormatFlags.WriteArrayAsGenericType |
+            ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
+            ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
+            ts.TypeFormatFlags.InTypeAlias
+        );
 
-  const projectFiles = getAllTypeScriptFiles(projectRoot);
-  console.log("Project files:", projectFiles);
+        return typeString;
+      } else {
+        console.log("No symbol found for node");
+      }
+    } else {
+      console.log("Node is not an identifier or is undefined");
+    }
 
-  const program = ts.createProgram(projectFiles, compilerOptions);
-  const sourceFile = program.getSourceFile(fileName);
-  const typeChecker = program.getTypeChecker();
-
-  if (!sourceFile) {
-    console.log("Source file not found");
+    return null;
+  } catch (error) {
+    console.error("Error in getInferredType:", error);
     return null;
   }
-
-  const offset = document.offsetAt(position);
-  const nodeAtPosition = findNodeAtPosition(sourceFile, offset);
-
-  console.log(
-    "Node at position:",
-    nodeAtPosition?.kind ? ts.SyntaxKind[nodeAtPosition.kind] : "Not found"
-  );
-
-  if (nodeAtPosition) {
-    const type = typeChecker.getTypeAtLocation(nodeAtPosition);
-    return expandType(type, typeChecker);
-  }
-
-  return null;
 }
-
 function expandType(
   type: ts.Type,
   typeChecker: ts.TypeChecker,
@@ -350,7 +359,6 @@ function findNodeAtPosition(
   }
   return find(sourceFile);
 }
-
 function formatTypeString(typeString: string): string {
   return typeString.replace(/\{([^{}]*)\}/g, (match, content) => {
     const properties = content.split(";").filter(Boolean);
