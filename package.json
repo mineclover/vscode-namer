@@ -33,7 +33,7 @@
         "title": "CSS to Typed: copy a css class type"
       },
       {
-        "command": "extension.copyInferredType",
+        "command": "extension.clipInferredType",
         "title": "CSS to Typed: Copy Inferred Type"
       }
     ],
