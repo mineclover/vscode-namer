@@ -202,6 +202,54 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(createType);
 }
 
+function expandType(
+  type: ts.Type,
+  typeChecker: ts.TypeChecker,
+  depth: number = 0
+): string {
+  if (depth > 3) {
+    // 재귀 깊이 제한
+    return "...";
+  }
+
+  if (type.isUnion()) {
+    return type.types
+      .map((t) => expandType(t, typeChecker, depth + 1))
+      .join(" | ");
+  }
+
+  if (type.isIntersection()) {
+    return type.types
+      .map((t) => expandType(t, typeChecker, depth + 1))
+      .join(" & ");
+  }
+
+  if (type.isClassOrInterface()) {
+    const props = type.getProperties().map((prop) => {
+      const propType = typeChecker.getTypeOfSymbolAtLocation(
+        prop,
+        prop.valueDeclaration!
+      );
+      return `${prop.name}: ${expandType(propType, typeChecker, depth + 1)}`;
+    });
+    return `{ ${props.join("; ")} }`;
+  }
+
+  if (type.isLiteral()) {
+    return JSON.stringify(type.value);
+  }
+
+  return typeChecker.typeToString(
+    type,
+    undefined,
+    ts.TypeFormatFlags.NoTruncation |
+      ts.TypeFormatFlags.WriteArrayAsGenericType |
+      ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
+      ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
+      ts.TypeFormatFlags.InTypeAlias
+  );
+}
+
 async function getInferredType(
   document: vscode.TextDocument,
   position: vscode.Position
@@ -258,15 +306,7 @@ async function getInferredType(
       }
 
       const type = typeChecker.getTypeAtLocation(typeNode);
-      const typeString = typeChecker.typeToString(
-        type,
-        undefined,
-        ts.TypeFormatFlags.NoTruncation |
-          ts.TypeFormatFlags.WriteArrayAsGenericType |
-          ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
-          ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
-          ts.TypeFormatFlags.InTypeAlias
-      );
+      const typeString = formatType(type, typeChecker);
 
       console.log("Inferred type:", typeString);
       return typeString;
@@ -280,26 +320,14 @@ async function getInferredType(
     return null;
   }
 }
-function expandType(
-  type: ts.Type,
-  typeChecker: ts.TypeChecker,
-  depth: number = 0
-): string {
-  if (depth > 3) {
-    // 재귀 깊이 제한
-    return "...";
-  }
 
+function formatType(type: ts.Type, typeChecker: ts.TypeChecker): string {
   if (type.isUnion()) {
-    return type.types
-      .map((t) => expandType(t, typeChecker, depth + 1))
-      .join(" | ");
+    return type.types.map((t) => formatType(t, typeChecker)).join(" | ");
   }
 
   if (type.isIntersection()) {
-    return type.types
-      .map((t) => expandType(t, typeChecker, depth + 1))
-      .join(" & ");
+    return type.types.map((t) => formatType(t, typeChecker)).join(" & ");
   }
 
   if (type.isClassOrInterface()) {
@@ -308,13 +336,13 @@ function expandType(
         prop,
         prop.valueDeclaration!
       );
-      return `${prop.name}: ${expandType(propType, typeChecker, depth + 1)}`;
+      const isOptional = (prop.flags & ts.SymbolFlags.Optional) !== 0;
+      return `${prop.name}${isOptional ? "?" : ""}: ${formatType(
+        propType,
+        typeChecker
+      )}`;
     });
     return `{ ${props.join("; ")} }`;
-  }
-
-  if (type.isLiteral()) {
-    return JSON.stringify(type.value);
   }
 
   return typeChecker.typeToString(
@@ -326,6 +354,19 @@ function expandType(
       ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
       ts.TypeFormatFlags.InTypeAlias
   );
+}
+
+function findNodeAtPosition(
+  sourceFile: ts.SourceFile,
+  offset: number
+): ts.Node | undefined {
+  function find(node: ts.Node): ts.Node | undefined {
+    if (node.getStart() <= offset && offset < node.getEnd()) {
+      const childNode = ts.forEachChild(node, find);
+      return childNode || node;
+    }
+  }
+  return find(sourceFile);
 }
 
 function getAllTypeScriptFiles(dir: string): string[] {
@@ -351,26 +392,4 @@ function getAllTypeScriptFiles(dir: string): string[] {
   }
 
   return files;
-}
-
-function findNodeAtPosition(
-  sourceFile: ts.SourceFile,
-  offset: number
-): ts.Node | undefined {
-  function find(node: ts.Node): ts.Node | undefined {
-    if (node.getStart() <= offset && offset < node.getEnd()) {
-      const childNode = ts.forEachChild(node, find);
-      return childNode || node;
-    }
-  }
-  return find(sourceFile);
-}
-function formatTypeString(typeString: string): string {
-  return typeString.replace(/\{([^{}]*)\}/g, (match, content) => {
-    const properties = content.split(";").filter(Boolean);
-    const formattedProperties = properties
-      .map((prop: string) => `    ${prop.trim()}`)
-      .join(";\n");
-    return `{\n${formattedProperties}\n}`;
-  });
 }
