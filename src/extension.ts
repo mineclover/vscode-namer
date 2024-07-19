@@ -167,21 +167,19 @@ export function activate(context: vscode.ExtensionContext) {
             const showTypeOnHover = vscode.workspace
               .getConfiguration("cssToTyped")
               .get("showTypeOnHover");
-            const copyCommand = "extension.copyInferredType";
-            let contents: vscode.MarkdownString;
+            const contents = new vscode.MarkdownString();
+            contents.isTrusted = true;
+            contents.supportHtml = true;
 
             if (showTypeOnHover) {
-              contents = new vscode.MarkdownString(
-                `Inferred type:\n\`\`\`typescript\n${inferredType}\n\`\`\``
-              );
-              contents.appendMarkdown(`\n\n[Copy](command:${copyCommand})`);
-            } else {
-              contents = new vscode.MarkdownString(
-                `[Copy Inferred Type](command:${copyCommand})`
-              );
+              contents.appendCodeblock(inferredType, "typescript");
+              contents.appendMarkdown("\n");
             }
 
-            contents.isTrusted = true;
+            contents.appendMarkdown(
+              `<a href="command:extension.copyInferredType">Copy Inferred Type</a>`
+            );
+
             return new vscode.Hover(contents);
           }
         } catch (error) {
