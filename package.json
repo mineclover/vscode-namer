@@ -36,7 +36,17 @@
         "command": "extension.copyInferredType",
         "title": "CSS to Typed: typescript all keys"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CSS to Typed",
+      "properties": {
+        "cssToTyped.showTypeOnHover": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show inferred type on hover"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

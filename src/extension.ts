@@ -157,45 +157,72 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const hover = vscode.languages.registerHoverProvider("typescript", {
-    async provideHover(document, position, token) {
-      try {
-        const inferredType = await getInferredType(document, position);
-        if (inferredType) {
-          const copyCommand = "extension.copyHoveredType";
-          const contents = new vscode.MarkdownString(
-            `Inferred type:\n\`\`\`typescript\n${inferredType}\n\`\`\``
-          );
-          contents.appendMarkdown(`\n\n[Copy](command:${copyCommand})`);
-          contents.isTrusted = true;
+  const hover = vscode.languages.registerHoverProvider(
+    ["typescript", "typescriptreact"],
+    {
+      async provideHover(document, position, token) {
+        try {
+          const inferredType = await getInferredType(document, position);
+          if (inferredType) {
+            const showTypeOnHover = vscode.workspace
+              .getConfiguration("cssToTyped")
+              .get("showTypeOnHover");
+            const copyCommand = "extension.copyInferredType";
+            let contents: vscode.MarkdownString;
 
-          return new vscode.Hover(contents);
-        }
-      } catch (error) {
-        console.error("Error in hover provider:", error);
-      }
-      return null;
-    },
-  });
+            if (showTypeOnHover) {
+              contents = new vscode.MarkdownString(
+                `Inferred type:\n\`\`\`typescript\n${inferredType}\n\`\`\``
+              );
+              contents.appendMarkdown(`\n\n[Copy](command:${copyCommand})`);
+            } else {
+              contents = new vscode.MarkdownString(
+                `[Copy Inferred Type](command:${copyCommand})`
+              );
+            }
 
-  const copyHoveredType = vscode.commands.registerCommand(
-    "extension.copyHoveredType",
-    () => {
-      const editor = vscode.window.activeTextEditor;
-      if (editor) {
-        const position = editor.selection.active;
-        getInferredType(editor.document, position).then((type) => {
-          if (type) {
-            vscode.env.clipboard.writeText(type);
-            vscode.window.showInformationMessage("Type copied to clipboard");
+            contents.isTrusted = true;
+            return new vscode.Hover(contents);
           }
-        });
-      }
+        } catch (error) {
+          console.error("Error in hover provider:", error);
+        }
+        return null;
+      },
     }
   );
 
   context.subscriptions.push(hover);
-  context.subscriptions.push(copyHoveredType);
+
+  const copyInferredType = vscode.commands.registerCommand(
+    "extension.copyInferredType",
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const document = editor.document;
+        const position = editor.selection.active;
+        try {
+          const inferredType = await getInferredType(document, position);
+          if (inferredType) {
+            await vscode.env.clipboard.writeText(inferredType);
+            vscode.window.showInformationMessage(
+              "Inferred type copied to clipboard"
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              "No type could be inferred at this position"
+            );
+          }
+        } catch (error) {
+          console.error("Error copying inferred type:", error);
+          vscode.window.showErrorMessage("Error copying inferred type");
+        }
+      }
+    }
+  );
+
+  context.subscriptions.push(copyInferredType);
+
   context.subscriptions.push(disposable);
 
   context.subscriptions.push(clipboardType);
