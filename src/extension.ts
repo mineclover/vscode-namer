@@ -6,7 +6,7 @@ import * as ts from "typescript";
 import * as path from "path";
 
 const uniq = (array: string[]) => [...new Set(array)];
-
+const inferredTypeMap = new Map<string, string>();
 export function getAllClassNames(content: string) {
   // check file exists, if not just return []
   const matchLineRegexp = /.*[,{]/g;
@@ -171,13 +171,23 @@ export function activate(context: vscode.ExtensionContext) {
             contents.isTrusted = true;
             contents.supportHtml = true;
 
+            // 호버 위치에 대한 고유 키 생성
+            const hoverKey = `${document.uri.toString()}:${position.line}:${
+              position.character
+            }`;
+
+            // 추론된 타입 정보 저장
+            inferredTypeMap.set(hoverKey, inferredType);
+
             if (showTypeOnHover) {
               contents.appendCodeblock(inferredType, "typescript");
               contents.appendMarkdown("\n");
             }
 
             contents.appendMarkdown(
-              `<a href="command:extension.copyInferredType">Copy Inferred Type</a>`
+              `<a href="command:extension.copyInferredType?${encodeURIComponent(
+                JSON.stringify([hoverKey])
+              )}">Copy Inferred Type</a>`
             );
 
             return new vscode.Hover(contents);
@@ -194,27 +204,25 @@ export function activate(context: vscode.ExtensionContext) {
 
   const copyInferredType = vscode.commands.registerCommand(
     "extension.copyInferredType",
-    async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (editor) {
-        const document = editor.document;
-        const position = editor.selection.active;
-        try {
-          const inferredType = await getInferredType(document, position);
-          if (inferredType) {
-            await vscode.env.clipboard.writeText(inferredType);
-            vscode.window.showInformationMessage(
-              "Inferred type copied to clipboard"
-            );
-          } else {
-            vscode.window.showInformationMessage(
-              "No type could be inferred at this position"
-            );
-          }
-        } catch (error) {
-          console.error("Error copying inferred type:", error);
-          vscode.window.showErrorMessage("Error copying inferred type");
+    async (hoverKey: string) => {
+      try {
+        const inferredType = inferredTypeMap.get(hoverKey);
+        if (inferredType) {
+          await vscode.env.clipboard.writeText(inferredType);
+          vscode.window.showInformationMessage(
+            "Inferred type copied to clipboard"
+          );
+
+          // 사용 후 Map에서 제거 (메모리 관리)
+          inferredTypeMap.delete(hoverKey);
+        } else {
+          vscode.window.showInformationMessage(
+            "No type could be inferred at this position"
+          );
         }
+      } catch (error) {
+        console.error("Error copying inferred type:", error);
+        vscode.window.showErrorMessage("Error copying inferred type");
       }
     }
   );
