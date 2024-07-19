@@ -2,7 +2,7 @@
   "name": "css-to-typed",
   "displayName": "CSS to Typed",
   "description": "css classNames export .d.ts",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "mineclover",
   "private": true,
   "license": "MIT",
