@@ -258,7 +258,15 @@ async function getInferredType(
     const fileName = document.fileName;
     console.log("Processing file:", fileName);
 
-    const compilerOptions: ts.CompilerOptions = {
+    const projectRoot = findProjectRoot(fileName);
+    console.log("Project root:", projectRoot);
+
+    const tsconfigPath = ts.findConfigFile(
+      projectRoot,
+      ts.sys.fileExists,
+      "tsconfig.json"
+    );
+    let compilerOptions: ts.CompilerOptions = {
       target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.CommonJS,
       strict: true,
@@ -269,8 +277,18 @@ async function getInferredType(
       checkJs: true,
     };
 
-    const projectRoot = path.dirname(fileName);
-    console.log("Project root:", projectRoot);
+    if (tsconfigPath) {
+      console.log("Found tsconfig.json at:", tsconfigPath);
+      const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+      const parsedConfig = ts.parseJsonConfigFileContent(
+        configFile.config,
+        ts.sys,
+        path.dirname(tsconfigPath)
+      );
+      compilerOptions = { ...compilerOptions, ...parsedConfig.options };
+    } else {
+      console.log("No tsconfig.json found. Using default compiler options.");
+    }
 
     const projectFiles = getAllTypeScriptFiles(projectRoot);
     console.log("Project files:", projectFiles);
@@ -319,6 +337,20 @@ async function getInferredType(
     console.error("Error in getInferredType:", error);
     return null;
   }
+}
+
+function findProjectRoot(fileName: string): string {
+  let dir = path.dirname(fileName);
+  while (dir !== path.parse(dir).root) {
+    if (
+      fs.existsSync(path.join(dir, "package.json")) ||
+      fs.existsSync(path.join(dir, "tsconfig.json"))
+    ) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return dir;
 }
 
 function formatType(type: ts.Type, typeChecker: ts.TypeChecker): string {

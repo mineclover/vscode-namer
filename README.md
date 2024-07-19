@@ -8,4 +8,4 @@ engines 버전 맞추기 필수
 
 npm run compile
 vsce package patch
-code --install-extension css-to-typed-0.1.5.vsix
+code --install-extension css-to-typed-0.1.6.vsix
