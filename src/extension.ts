@@ -158,70 +158,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const hover = vscode.languages.registerHoverProvider("typescript", {
-    provideHover(document, position, token) {
+    async provideHover(document, position, token) {
       try {
-        const fileName = document.fileName;
-        console.log("Processing file:", fileName);
-
-        const compilerOptions: ts.CompilerOptions = {
-          target: ts.ScriptTarget.ESNext,
-          module: ts.ModuleKind.CommonJS,
-          strict: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
-          forceConsistentCasingInFileNames: true,
-          allowJs: true,
-          checkJs: true,
-        };
-
-        // 현재 파일의 디렉토리를 프로젝트 루트로 가정
-        const projectRoot = path.dirname(fileName);
-        console.log("Project root:", projectRoot);
-
-        // 프로젝트의 TypeScript 파일 찾기
-        const projectFiles = getAllTypeScriptFiles(projectRoot);
-        console.log("Project files:", projectFiles);
-
-        const program = ts.createProgram(projectFiles, compilerOptions);
-        const sourceFile = program.getSourceFile(fileName);
-        const typeChecker = program.getTypeChecker();
-
-        if (!sourceFile) {
-          console.log("Source file not found");
-          return null;
-        }
-
-        const offset = document.offsetAt(position);
-        const nodeAtPosition = findNodeAtPosition(sourceFile, offset);
-
-        console.log(
-          "Node at position:",
-          nodeAtPosition?.kind
-            ? ts.SyntaxKind[nodeAtPosition.kind]
-            : "Not found"
-        );
-
-        if (nodeAtPosition) {
-          const type = typeChecker.getTypeAtLocation(nodeAtPosition);
-          console.log("Type:", typeChecker.typeToString(type));
-
-          const typeString = typeChecker.typeToString(
-            type,
-            undefined,
-            ts.TypeFormatFlags.NoTruncation |
-              ts.TypeFormatFlags.WriteArrayAsGenericType |
-              ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
-              ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
-              ts.TypeFormatFlags.InTypeAlias
+        const inferredType = await getInferredType(document, position);
+        if (inferredType) {
+          const copyCommand = "extension.copyHoveredType";
+          const contents = new vscode.MarkdownString(
+            `Inferred type:\n\`\`\`typescript\n${inferredType}\n\`\`\``
           );
+          contents.appendMarkdown(`\n\n[Copy](command:${copyCommand})`);
+          contents.isTrusted = true;
 
-          const formattedType = formatTypeString(typeString);
-
-          return new vscode.Hover(
-            `Inferred type:\n\`\`\`typescript\n${formattedType}\n\`\`\``
-          );
-        } else {
-          console.log("No node found at position");
+          return new vscode.Hover(contents);
         }
       } catch (error) {
         console.error("Error in hover provider:", error);
@@ -230,8 +178,24 @@ export function activate(context: vscode.ExtensionContext) {
     },
   });
 
-  context.subscriptions.push(hover);
+  const copyHoveredType = vscode.commands.registerCommand(
+    "extension.copyHoveredType",
+    () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const position = editor.selection.active;
+        getInferredType(editor.document, position).then((type) => {
+          if (type) {
+            vscode.env.clipboard.writeText(type);
+            vscode.window.showInformationMessage("Type copied to clipboard");
+          }
+        });
+      }
+    }
+  );
 
+  context.subscriptions.push(hover);
+  context.subscriptions.push(copyHoveredType);
   context.subscriptions.push(disposable);
 
   context.subscriptions.push(clipboardType);
@@ -245,7 +209,12 @@ async function getInferredType(
   const fileName = document.fileName;
   console.log("Processing file:", fileName);
 
-  const compilerOptions: ts.CompilerOptions = {
+  const tsconfigPath = ts.findConfigFile(
+    path.dirname(fileName),
+    ts.sys.fileExists,
+    "tsconfig.json"
+  );
+  let compilerOptions: ts.CompilerOptions = {
     target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.CommonJS,
     strict: true,
@@ -255,6 +224,16 @@ async function getInferredType(
     allowJs: true,
     checkJs: true,
   };
+
+  if (tsconfigPath) {
+    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      path.dirname(tsconfigPath)
+    );
+    compilerOptions = { ...compilerOptions, ...parsedConfig.options };
+  }
 
   const projectRoot = path.dirname(fileName);
   console.log("Project root:", projectRoot);
@@ -281,20 +260,58 @@ async function getInferredType(
 
   if (nodeAtPosition) {
     const type = typeChecker.getTypeAtLocation(nodeAtPosition);
-    const typeString = typeChecker.typeToString(
-      type,
-      undefined,
-      ts.TypeFormatFlags.NoTruncation |
-        ts.TypeFormatFlags.WriteArrayAsGenericType |
-        ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
-        ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
-        ts.TypeFormatFlags.InTypeAlias
-    );
-
-    return typeString;
+    return expandType(type, typeChecker);
   }
 
   return null;
+}
+
+function expandType(
+  type: ts.Type,
+  typeChecker: ts.TypeChecker,
+  depth: number = 0
+): string {
+  if (depth > 3) {
+    // 재귀 깊이 제한
+    return "...";
+  }
+
+  if (type.isUnion()) {
+    return type.types
+      .map((t) => expandType(t, typeChecker, depth + 1))
+      .join(" | ");
+  }
+
+  if (type.isIntersection()) {
+    return type.types
+      .map((t) => expandType(t, typeChecker, depth + 1))
+      .join(" & ");
+  }
+
+  if (type.isClassOrInterface()) {
+    const props = type.getProperties().map((prop) => {
+      const propType = typeChecker.getTypeOfSymbolAtLocation(
+        prop,
+        prop.valueDeclaration!
+      );
+      return `${prop.name}: ${expandType(propType, typeChecker, depth + 1)}`;
+    });
+    return `{ ${props.join("; ")} }`;
+  }
+
+  if (type.isLiteral()) {
+    return JSON.stringify(type.value);
+  }
+
+  return typeChecker.typeToString(
+    type,
+    undefined,
+    ts.TypeFormatFlags.NoTruncation |
+      ts.TypeFormatFlags.WriteArrayAsGenericType |
+      ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
+      ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
+      ts.TypeFormatFlags.InTypeAlias
+  );
 }
 
 function getAllTypeScriptFiles(dir: string): string[] {

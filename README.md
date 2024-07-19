@@ -7,6 +7,5 @@ engines 버전 맞추기 필수
 깃 커밋도 해야함
 
 npm run compile
-npm version patch
 vsce package patch
-code --install-extension css-to-typed-0.0.7.vsix
+code --install-extension css-to-typed-0.0.8.vsix
