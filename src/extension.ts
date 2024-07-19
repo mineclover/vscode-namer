@@ -6,7 +6,7 @@ import * as ts from "typescript";
 import * as path from "path";
 
 const uniq = (array: string[]) => [...new Set(array)];
-const inferredTypeMap = new Map<string, string>();
+
 export function getAllClassNames(content: string) {
   // check file exists, if not just return []
   const matchLineRegexp = /.*[,{]/g;
@@ -81,7 +81,7 @@ const arrayToStringTyped = (arr: string[], name: string) => {
   const context = "export type " + name + "Styles" + " = " + types;
   return context;
 };
-
+const inferredTypeMap = new Map<string, string>();
 export function activate(context: vscode.ExtensionContext) {
   const createType = vscode.commands.registerCommand(
     "extension.createType",
@@ -154,13 +154,12 @@ export function activate(context: vscode.ExtensionContext) {
               contents.appendMarkdown("\n");
             }
 
-            // 명령에 인자를 전달할 때 encodeURIComponent 사용
+            // 명령에 인자를 전달할 때 JSON.stringify와 encodeURIComponent 사용
+            const encodedKey = encodeURIComponent(JSON.stringify(hoverKey));
             contents.appendMarkdown(
-              `<a href="command:cssToTyped.copyInferredType?${encodeURIComponent(
-                hoverKey
-              )}">Copy Inferred Type</a>`
+              `<a href="command:cssToTyped.copyInferredType?${encodedKey}">Copy Inferred Type</a>`
             );
-            console.log(`Created hover link with key: ${hoverKey}`);
+            console.log(`Created hover link with encoded key: ${encodedKey}`);
 
             return new vscode.Hover(contents);
           }
@@ -172,17 +171,44 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  context.subscriptions.push(hover);
+
+  // 호버가 해제될 때 메모리 정리
+  const selectionChangeDisposable =
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const document = editor.document;
+        const position = editor.selection.active;
+        const hoverKey = `${document.uri.toString()}:${position.line}:${
+          position.character
+        }`;
+
+        if (inferredTypeMap.has(hoverKey)) {
+          console.log(`Removing stored type for key ${hoverKey}`);
+          inferredTypeMap.delete(hoverKey);
+        }
+      }
+    });
+
+  context.subscriptions.push(selectionChangeDisposable);
+
   const copyInferredType = vscode.commands.registerCommand(
     "cssToTyped.copyInferredType",
-    async (hoverKey: string) => {
-      console.log("Command triggered with hover key:", hoverKey);
-      console.log("Current map contents:", [...inferredTypeMap.entries()]);
+    async (args: string) => {
+      console.log("Command triggered with args:", args);
 
-      if (typeof hoverKey !== "string") {
-        console.error("Invalid hover key type:", typeof hoverKey);
+      let hoverKey: string;
+      try {
+        hoverKey = JSON.parse(decodeURIComponent(args));
+        console.log("Decoded hover key:", hoverKey);
+      } catch (error) {
+        console.error("Error decoding hover key:", error);
         vscode.window.showErrorMessage("Invalid hover key");
         return;
       }
+
+      console.log("Current map contents:", [...inferredTypeMap.entries()]);
 
       const inferredType = inferredTypeMap.get(hoverKey);
       if (inferredType) {
@@ -192,9 +218,6 @@ export function activate(context: vscode.ExtensionContext) {
             "Inferred type copied to clipboard"
           );
           console.log("Copied type to clipboard:", inferredType);
-
-          // 사용 후 Map에서 제거 (메모리 관리)
-          inferredTypeMap.delete(hoverKey);
         } catch (error) {
           console.error("Error copying to clipboard:", error);
           vscode.window.showErrorMessage(
@@ -210,6 +233,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  context.subscriptions.push(copyInferredType);
+
+  // getInferredType, formatType, findNodeAtPosition, getAllTypeScriptFiles 함수들은 이전과 동일
   const disposable = vscode.commands.registerCommand(
     "extension.copyInferredType",
     async (args: any) => {
@@ -254,9 +280,6 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
   );
-
-  context.subscriptions.push(copyInferredType);
-  context.subscriptions.push(hover);
 
   context.subscriptions.push(disposable);
 
