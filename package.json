@@ -1,14 +1,13 @@
 {
-  "name": "css-to-typed",
-  "displayName": "CSS to Typed",
-  "description": "css classNames export .d.ts",
-  "version": "0.1.17",
+  "name": "vscode-namer",
+  "displayName": "VSCode Namer",
+  "description": "Suggests variable names using GPT API",
+  "version": "0.0.1",
   "publisher": "mineclover",
   "private": true,
-  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mineclover/css-to-typed.git"
+    "url": "https://github.com/mineclover/vscode-namer.git"
   },
   "engines": {
     "vscode": "^1.91.0"
@@ -17,13 +16,9 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onCommand:extension.copyHoveredType",
-    "onCommand:variable-name-suggester.suggestNames",
     "onView:variableNameSuggesterSidebar"
   ],
-  "main": "./out/extension",
+  "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -37,6 +32,7 @@
     "views": {
       "variable-name-suggester-sidebar": [
         {
+          "type": "webview",
           "id": "variableNameSuggesterSidebar",
           "name": "Variable Names"
         }
@@ -44,36 +40,19 @@
     },
     "commands": [
       {
-        "command": "extension.createType",
-        "title": "CSS to Typed: create a css class type"
-      },
-      {
-        "command": "extension.clipboardType",
-        "title": "CSS to Typed: copy a css class type"
-      },
-      {
-        "command": "extension.copyInferredType",
-        "title": "CSS to Typed: Copy Inferred Type"
-      },
-      {
-        "command": "variable-name-suggester.suggestNames",
+        "command": "vscode-namer.suggestNames",
         "title": "Suggest Variable Names"
       }
     ],
     "configuration": {
-      "title": "CSS to Typed",
+      "title": "VSCode Namer",
       "properties": {
-        "cssToTyped.showTypeOnHover": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show inferred type on hover"
-        },
-        "variableNameSuggester.apiKey": {
+        "vscode-namer.apiKey": {
           "type": "string",
           "default": "",
           "description": "API Key for OpenAI GPT"
         },
-        "variableNameSuggester.suggestionCount": {
+        "vscode-namer.suggestionCount": {
           "type": "number",
           "default": 5,
           "minimum": 1,
@@ -81,15 +60,6 @@
           "description": "Number of variable name suggestions to generate (1-10)"
         }
       }
-    },
-    "menus": {
-      "editor/context": [
-        {
-          "when": "editorHasSelection",
-          "command": "variable-name-suggester.suggestNames",
-          "group": "1_modification"
-        }
-      ]
     }
   },
   "scripts": {

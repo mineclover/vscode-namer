@@ -1,0 +1,56 @@
+body {
+  font-family: var(--vscode-font-family);
+  padding: 10px;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+}
+
+#input {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+}
+
+#suggest {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+#suggest:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.suggestion {
+  margin-bottom: 10px;
+  padding: 5px;
+  background-color: rgba(var(--vscode-editor-background), 0.7);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 3px;
+}
+
+.suggestion button {
+  margin-left: 10px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+.suggestion button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+#namingStyle {
+  margin-bottom: 10px;
+  padding: 5px;
+  background-color: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border);
+}
