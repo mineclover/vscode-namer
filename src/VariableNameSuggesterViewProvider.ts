@@ -13,9 +13,9 @@ export class VariableNameSuggesterViewProvider
     "You are a helpful assistant that suggests variable names. Provide your suggestions as a valid JSON array of strings.";
   private readonly USER_PROMPT = (count: number, text: string, style: string) =>
     `Suggest ${count} variable names for: ${text}. 
-         Use the ${style} naming style.
-         Respond with a valid JSON array of strings containing only the variable names, without any additional explanation or numbering. 
-         Example response format: ["variableName1", "variableName2", "variableName3"]`;
+Use the ${style} naming style.
+Respond with a valid JSON array of strings containing only the variable names, without any additional explanation or numbering. 
+Example response format: ["variableName1", "variableName2", "variableName3"]`;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._outputChannel = vscode.window.createOutputChannel(
@@ -40,7 +40,12 @@ export class VariableNameSuggesterViewProvider
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
         case "suggest":
-          await this.getSuggestions(data.value, data.style);
+          await this.getSuggestions(
+            data.value,
+            data.style,
+            data.concept,
+            parseInt(data.count)
+          );
           break;
         case "copy":
           vscode.env.clipboard.writeText(data.value);
@@ -50,15 +55,21 @@ export class VariableNameSuggesterViewProvider
     });
   }
 
-  private async getSuggestions(text: string, style: string) {
-    const { apiKey, suggestionCount } = await this.getConfig();
+  private async getSuggestions(
+    text: string,
+    style: string,
+    concept: string,
+    count: number
+  ) {
+    const { apiKey } = await this.getConfig();
     if (apiKey) {
       try {
         const suggestions = await this.getSuggestionsWithRetry(
           text,
           apiKey,
-          suggestionCount,
-          style
+          count,
+          style,
+          concept
         );
         this._view?.webview.postMessage({
           type: "suggestions",
@@ -67,6 +78,8 @@ export class VariableNameSuggesterViewProvider
 
         this._outputChannel.appendLine(`Input: ${text}`);
         this._outputChannel.appendLine(`Style: ${style}`);
+        this._outputChannel.appendLine(`Concept: ${concept}`);
+        this._outputChannel.appendLine(`Count: ${count}`);
         this._outputChannel.appendLine(`Suggestions:`);
         suggestions.forEach((suggestion, index) => {
           this._outputChannel.appendLine(`${index + 1}. ${suggestion}`);
@@ -82,7 +95,6 @@ export class VariableNameSuggesterViewProvider
       );
     }
   }
-
   private async getConfig(): Promise<{
     apiKey: string | undefined;
     suggestionCount: number;
@@ -114,21 +126,33 @@ export class VariableNameSuggesterViewProvider
     apiKey: string,
     count: number,
     style: string,
+    concept: string,
     maxRetries = 3
   ): Promise<string[]> {
     let retries = 0;
     while (retries < maxRetries) {
       try {
+        const USER_PROMPT = `Suggest ${count} variable names for: ${text}. 
+                                 Use the ${style} naming style and the ${concept} concept.
+                                 Respond with a valid JSON array of strings containing only the variable names.`;
+
+        const requestBody = {
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: this.SYSTEM_PROMPT },
+            { role: "user", content: USER_PROMPT },
+          ],
+          max_tokens: 150,
+        };
+
+        // Log the full API request
+        this._outputChannel.appendLine("Full API Request:");
+        this._outputChannel.appendLine(JSON.stringify(requestBody, null, 2));
+        this._outputChannel.appendLine("---");
+
         const response = await axios.post(
           "https://api.openai.com/v1/chat/completions",
-          {
-            model: "gpt-3.5-turbo",
-            messages: [
-              { role: "system", content: this.SYSTEM_PROMPT },
-              { role: "user", content: this.USER_PROMPT(count, text, style) },
-            ],
-            max_tokens: 150,
-          },
+          requestBody,
           {
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -212,25 +236,42 @@ export class VariableNameSuggesterViewProvider
     );
 
     return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="${stylesUri}" rel="stylesheet">
-                <title>Variable Name Suggester</title>
-            </head>
-            <body>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="${stylesUri}" rel="stylesheet">
+            <title>Variable Name Suggester</title>
+        </head>
+        <body>
+            <div class="container">
+                <label for="namingStyle">Naming Style:</label>
                 <select id="namingStyle">
                     <option value="camelCase">camelCase</option>
                     <option value="PascalCase">PascalCase</option>
                     <option value="snake_case">snake_case</option>
                     <option value="kebab-case">kebab-case</option>
                 </select>
+
+                <label for="namingConcept">Naming Concept:</label>
+                <select id="namingConcept">
+                    <option value="default">Default</option>
+                    <option value="hipster">Hipster</option>
+                    <option value="expert">Expert Developer</option>
+                    <option value="academic">Academic</option>
+                    <option value="abstract">Abstract</option>
+                    <option value="semantic">Semantic</option>
+                </select>
+
+                <label for="suggestionCount">Number of Suggestions:</label>
+                <input type="number" id="suggestionCount" min="1" max="20" value="5">
+
                 <input id="input" type="text" placeholder="Enter description for variable">
                 <button id="suggest">Suggest Names</button>
                 <div id="suggestions"></div>
-                <script src="${scriptUri}"></script>
-            </body>
-            </html>`;
+            </div>
+            <script src="${scriptUri}"></script>
+        </body>
+        </html>`;
   }
 }

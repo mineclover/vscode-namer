@@ -6,14 +6,20 @@
   const input = document.getElementById("input");
   const suggestionsDiv = document.getElementById("suggestions");
   const namingStyleSelect = document.getElementById("namingStyle");
+  const namingConceptSelect = document.getElementById("namingConcept");
+  const suggestionCountInput = document.getElementById("suggestionCount");
 
   suggestButton.addEventListener("click", () => {
     const text = input.value;
     const style = namingStyleSelect.value;
+    const concept = namingConceptSelect.value;
+    const count = suggestionCountInput.value;
     vscode.postMessage({
       type: "suggest",
       value: text,
       style: style,
+      concept: concept,
+      count: count,
     });
   });
 
@@ -28,7 +34,7 @@
 
   function displaySuggestions(suggestions) {
     suggestionsDiv.innerHTML = "";
-    suggestions.forEach((suggestion, index) => {
+    suggestions.forEach((suggestion) => {
       const div = document.createElement("div");
       div.className = "suggestion";
       div.textContent = suggestion;

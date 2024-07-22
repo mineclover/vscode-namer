@@ -2,29 +2,37 @@ body {
   font-family: var(--vscode-font-family);
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
-  /* body가 통째로 iframe인거 같다 */
-  padding: 16px;
+  padding: 0;
   margin: 0;
 }
 
 .container {
   max-width: 100%;
-  padding: 10px;
+  padding: 16px;
   box-sizing: border-box;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
 }
 
 #input,
 #namingStyle,
+#namingConcept,
+#suggestionCount,
 #suggest {
   width: 100%;
   padding: 5px;
   margin-bottom: 10px;
   box-sizing: border-box;
-  height: 30px; /* Consistent height for all elements */
+  height: 30px;
 }
 
 #input,
-#namingStyle {
+#namingStyle,
+#namingConcept,
+#suggestionCount {
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
@@ -36,7 +44,7 @@ body {
   border: none;
   cursor: pointer;
   text-align: center;
-  line-height: 20px; /* Vertically center the text */
+  line-height: 20px;
 }
 
 #suggest:hover {
@@ -60,7 +68,7 @@ body {
   border: none;
   padding: 2px 5px;
   cursor: pointer;
-  height: 24px; /* Smaller height for suggestion copy buttons */
+  height: 24px;
 }
 
 .suggestion button:hover {
