@@ -5,7 +5,13 @@ body {
   color: var(--vscode-editor-foreground);
 }
 
-#input {
+#initialSuggestions,
+#refineSuggestions {
+  margin-bottom: 20px;
+}
+
+#input,
+#namingStyle {
   width: 100%;
   padding: 5px;
   margin-bottom: 10px;
@@ -14,15 +20,18 @@ body {
   border: 1px solid var(--vscode-input-border);
 }
 
-#suggest {
+#suggest,
+#refine {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
   padding: 5px 10px;
   cursor: pointer;
+  margin-bottom: 10px;
 }
 
-#suggest:hover {
+#suggest:hover,
+#refine:hover {
   background-color: var(--vscode-button-hoverBackground);
 }
 
@@ -32,10 +41,20 @@ body {
   background-color: rgba(var(--vscode-editor-background), 0.7);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.suggestion input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.suggestion label {
+  flex-grow: 1;
+  margin-right: 10px;
 }
 
 .suggestion button {
-  margin-left: 10px;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: none;
@@ -47,10 +66,9 @@ body {
   background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-#namingStyle {
-  margin-bottom: 10px;
-  padding: 5px;
-  background-color: var(--vscode-dropdown-background);
-  color: var(--vscode-dropdown-foreground);
-  border: 1px solid var(--vscode-dropdown-border);
+h3 {
+  color: var(--vscode-editor-foreground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 5px;
+  margin-top: 20px;
 }
