@@ -137,7 +137,8 @@ Example response format: ["variableName1", "variableName2", "variableName3"]`;
                                  Respond with a valid JSON array of strings containing only the variable names.`;
 
         const requestBody = {
-          model: "gpt-3.5-turbo",
+          //TODO: 모델 선택 기능 추가
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: this.SYSTEM_PROMPT },
             { role: "user", content: USER_PROMPT },
