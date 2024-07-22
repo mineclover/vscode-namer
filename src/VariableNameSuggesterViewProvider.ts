@@ -133,8 +133,8 @@ Example response format: ["variableName1", "variableName2", "variableName3"]`;
     while (retries < maxRetries) {
       try {
         const USER_PROMPT = `Suggest ${count} variable names for: ${text}. 
-                                 Use the ${style} naming style and the ${concept} concept.
-                                 Respond with a valid JSON array of strings containing only the variable names.`;
+Use the ${style} naming style and the ${concept} concept.
+Respond with a valid JSON array of strings containing only the variable names.`;
 
         const requestBody = {
           //TODO: 모델 선택 기능 추가
