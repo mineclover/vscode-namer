@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as ts from "typescript";
 import * as path from "path";
+import { suggestVariableNames, VariableNameSuggesterProvider } from "./nameGPT";
 
 const uniq = (array: string[]) => [...new Set(array)];
 
@@ -150,7 +151,6 @@ export function activate(context: vscode.ExtensionContext) {
 
             inferredTypeMap.set(hoverKey, inferredType);
             currentHoverKey = hoverKey; // 현재 호버 키 저장
-            console.log(`Stored type for key ${hoverKey}:`, inferredType);
 
             if (showTypeOnHover) {
               contents.appendCodeblock(inferredType, "typescript");
@@ -160,7 +160,6 @@ export function activate(context: vscode.ExtensionContext) {
             contents.appendMarkdown(
               `<a href="command:cssToTyped.copyInferredType">Copy Inferred Type</a>`
             );
-            console.log(`Created hover link for key: ${hoverKey}`);
 
             return new vscode.Hover(contents);
           }
@@ -183,16 +182,11 @@ export function activate(context: vscode.ExtensionContext) {
   const copyInferredType = vscode.commands.registerCommand(
     "cssToTyped.copyInferredType",
     async () => {
-      console.log("Command triggered");
-
       if (!currentHoverKey) {
         console.error("No current hover key");
         vscode.window.showErrorMessage("No type to copy");
         return;
       }
-
-      console.log("Current hover key:", currentHoverKey);
-      console.log("Current map contents:", [...inferredTypeMap.entries()]);
 
       const inferredType = inferredTypeMap.get(currentHoverKey);
       if (inferredType) {
@@ -201,7 +195,6 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showInformationMessage(
             "Inferred type copied to clipboard"
           );
-          console.log("Copied type to clipboard:", inferredType);
         } catch (error) {
           console.error("Error copying to clipboard:", error);
           vscode.window.showErrorMessage(
@@ -209,7 +202,6 @@ export function activate(context: vscode.ExtensionContext) {
           );
         }
       } else {
-        console.log("No inferred type found for key:", currentHoverKey);
         vscode.window.showInformationMessage(
           "No type could be inferred at this position"
         );
@@ -224,7 +216,6 @@ export function activate(context: vscode.ExtensionContext) {
   const disposable = vscode.commands.registerCommand(
     "extension.copyInferredType",
     async (args: any) => {
-      console.log("Command triggered with args:", args);
       let hoverKey: string;
 
       if (Array.isArray(args) && typeof args[0] === "string") {
@@ -237,9 +228,6 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      console.log("Searching for hover key:", hoverKey);
-      console.log("Current map contents:", [...inferredTypeMap.entries()]);
-
       const inferredType = inferredTypeMap.get(hoverKey);
       if (inferredType) {
         try {
@@ -247,7 +235,6 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showInformationMessage(
             "Inferred type copied to clipboard"
           );
-          console.log("Copied type to clipboard:", inferredType);
 
           // 사용 후 Map에서 제거 (메모리 관리)
           inferredTypeMap.delete(hoverKey);
@@ -258,7 +245,6 @@ export function activate(context: vscode.ExtensionContext) {
           );
         }
       } else {
-        console.log("No inferred type found for key:", hoverKey);
         vscode.window.showInformationMessage(
           "No type could be inferred at this position"
         );
@@ -266,58 +252,23 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const variableNameSuggesterProvider = new VariableNameSuggesterProvider();
+  vscode.window.registerTreeDataProvider(
+    "variableNameSuggesterSidebar",
+    variableNameSuggesterProvider
+  );
+
+  const suggestVariable = vscode.commands.registerCommand(
+    "variable-name-suggester.suggestNames",
+    () => suggestVariableNames(context)
+  );
+
+  context.subscriptions.push(suggestVariable);
+
   context.subscriptions.push(disposable);
 
   context.subscriptions.push(clipboardType);
   context.subscriptions.push(createType);
-}
-
-function expandType(
-  type: ts.Type,
-  typeChecker: ts.TypeChecker,
-  depth: number = 0
-): string {
-  if (depth > 3) {
-    // 재귀 깊이 제한
-    return "...";
-  }
-
-  if (type.isUnion()) {
-    return type.types
-      .map((t) => expandType(t, typeChecker, depth + 1))
-      .join(" | ");
-  }
-
-  if (type.isIntersection()) {
-    return type.types
-      .map((t) => expandType(t, typeChecker, depth + 1))
-      .join(" & ");
-  }
-
-  if (type.isClassOrInterface()) {
-    const props = type.getProperties().map((prop) => {
-      const propType = typeChecker.getTypeOfSymbolAtLocation(
-        prop,
-        prop.valueDeclaration!
-      );
-      return `${prop.name}: ${expandType(propType, typeChecker, depth + 1)}`;
-    });
-    return `{ ${props.join("; ")} }`;
-  }
-
-  if (type.isLiteral()) {
-    return JSON.stringify(type.value);
-  }
-
-  return typeChecker.typeToString(
-    type,
-    undefined,
-    ts.TypeFormatFlags.NoTruncation |
-      ts.TypeFormatFlags.WriteArrayAsGenericType |
-      ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
-      ts.TypeFormatFlags.WriteClassExpressionAsTypeLiteral |
-      ts.TypeFormatFlags.InTypeAlias
-  );
 }
 
 async function getInferredType(
@@ -326,10 +277,8 @@ async function getInferredType(
 ): Promise<string | null> {
   try {
     const fileName = document.fileName;
-    console.log("Processing file:", fileName);
 
     const projectRoot = findProjectRoot(fileName);
-    console.log("Project root:", projectRoot);
 
     const tsconfigPath = ts.findConfigFile(
       projectRoot,
@@ -348,7 +297,6 @@ async function getInferredType(
     };
 
     if (tsconfigPath) {
-      console.log("Found tsconfig.json at:", tsconfigPath);
       const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
       const parsedConfig = ts.parseJsonConfigFileContent(
         configFile.config,
@@ -356,29 +304,20 @@ async function getInferredType(
         path.dirname(tsconfigPath)
       );
       compilerOptions = { ...compilerOptions, ...parsedConfig.options };
-    } else {
-      console.log("No tsconfig.json found. Using default compiler options.");
     }
 
     const projectFiles = getAllTypeScriptFiles(projectRoot);
-    console.log("Project files:", projectFiles);
 
     const program = ts.createProgram(projectFiles, compilerOptions);
     const sourceFile = program.getSourceFile(fileName);
     const typeChecker = program.getTypeChecker();
 
     if (!sourceFile) {
-      console.log("Source file not found");
       return null;
     }
 
     const offset = document.offsetAt(position);
     const nodeAtPosition = findNodeAtPosition(sourceFile, offset);
-
-    console.log(
-      "Node at position:",
-      nodeAtPosition?.kind ? ts.SyntaxKind[nodeAtPosition.kind] : "Not found"
-    );
 
     if (nodeAtPosition) {
       let typeNode: ts.Node | undefined = nodeAtPosition;
@@ -396,10 +335,7 @@ async function getInferredType(
       const type = typeChecker.getTypeAtLocation(typeNode);
       const typeString = formatType(type, typeChecker);
 
-      console.log("Inferred type:", typeString);
       return typeString;
-    } else {
-      console.log("No node found at position");
     }
 
     return null;

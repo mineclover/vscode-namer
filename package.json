@@ -19,10 +19,29 @@
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
-    "onCommand:extension.copyHoveredType"
+    "onCommand:extension.copyHoveredType",
+    "onCommand:variable-name-suggester.suggestNames",
+    "onView:variableNameSuggesterSidebar"
   ],
   "main": "./out/extension",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "variable-name-suggester-sidebar",
+          "title": "Variable Name Suggester",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "variable-name-suggester-sidebar": [
+        {
+          "id": "variableNameSuggesterSidebar",
+          "name": "Variable Names"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "extension.createType",
@@ -35,6 +54,10 @@
       {
         "command": "extension.copyInferredType",
         "title": "CSS to Typed: Copy Inferred Type"
+      },
+      {
+        "command": "variable-name-suggester.suggestNames",
+        "title": "Suggest Variable Names"
       }
     ],
     "configuration": {
@@ -44,8 +67,29 @@
           "type": "boolean",
           "default": false,
           "description": "Show inferred type on hover"
+        },
+        "variableNameSuggester.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for OpenAI GPT"
+        },
+        "variableNameSuggester.suggestionCount": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Number of variable name suggestions to generate (1-10)"
         }
       }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "variable-name-suggester.suggestNames",
+          "group": "1_modification"
+        }
+      ]
     }
   },
   "scripts": {
@@ -62,6 +106,7 @@
     "eslint": "^8.26.0"
   },
   "dependencies": {
+    "axios": "^1.7.2",
     "typescript": "^5.5.3"
   }
 }
