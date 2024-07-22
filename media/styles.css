@@ -1,37 +1,45 @@
 body {
   font-family: var(--vscode-font-family);
-  padding: 10px;
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
+  /* body가 통째로 iframe인거 같다 */
+  padding: 16px;
+  margin: 0;
 }
 
-#initialSuggestions,
-#refineSuggestions {
-  margin-bottom: 20px;
+.container {
+  max-width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#input,
+#namingStyle,
+#suggest {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  height: 30px; /* Consistent height for all elements */
 }
 
 #input,
 #namingStyle {
-  width: 100%;
-  padding: 5px;
-  margin-bottom: 10px;
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
 }
 
-#suggest,
-#refine {
+#suggest {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  padding: 5px 10px;
   cursor: pointer;
-  margin-bottom: 10px;
+  text-align: center;
+  line-height: 20px; /* Vertically center the text */
 }
 
-#suggest:hover,
-#refine:hover {
+#suggest:hover {
   background-color: var(--vscode-button-hoverBackground);
 }
 
@@ -43,15 +51,7 @@ body {
   border-radius: 3px;
   display: flex;
   align-items: center;
-}
-
-.suggestion input[type="checkbox"] {
-  margin-right: 5px;
-}
-
-.suggestion label {
-  flex-grow: 1;
-  margin-right: 10px;
+  justify-content: space-between;
 }
 
 .suggestion button {
@@ -60,15 +60,9 @@ body {
   border: none;
   padding: 2px 5px;
   cursor: pointer;
+  height: 24px; /* Smaller height for suggestion copy buttons */
 }
 
 .suggestion button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground);
-}
-
-h3 {
-  color: var(--vscode-editor-foreground);
-  border-bottom: 1px solid var(--vscode-panel-border);
-  padding-bottom: 5px;
-  margin-top: 20px;
 }
