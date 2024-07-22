@@ -73,10 +73,10 @@
     "@types/vscode": "^1.91.0",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
     "@typescript-eslint/parser": "^7.16.1",
-    "eslint": "^8.26.0"
+    "eslint": "^8.26.0",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
-    "axios": "^1.7.2",
-    "typescript": "^5.5.3"
+    "axios": "^1.7.2"
   }
 }
