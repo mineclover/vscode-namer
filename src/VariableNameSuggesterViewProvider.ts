@@ -10,12 +10,7 @@ export class VariableNameSuggesterViewProvider
   private _outputChannel: vscode.OutputChannel;
 
   private readonly SYSTEM_PROMPT =
-    "You are a helpful assistant that suggests variable names. Provide your suggestions as a valid JSON array of strings.";
-  private readonly USER_PROMPT = (count: number, text: string, style: string) =>
-    `Suggest ${count} variable names for: ${text}. 
-Use the ${style} naming style.
-Respond with a valid JSON array of strings containing only the variable names, without any additional explanation or numbering. 
-Example response format: ["variableName1", "variableName2", "variableName3"]`;
+    "You are a helpful assistant that suggests variable names. Provide your suggestions as a valid JSON array of strings, without any markdown formatting or code blocks.";
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._outputChannel = vscode.window.createOutputChannel(
@@ -62,46 +57,125 @@ Example response format: ["variableName1", "variableName2", "variableName3"]`;
     count: number
   ) {
     const { apiKey } = await this.getConfig();
-    if (apiKey) {
-      try {
-        const suggestions = await this.getSuggestionsWithRetry(
-          text,
-          apiKey,
-          count,
-          style,
-          concept
-        );
-        this._view?.webview.postMessage({
-          type: "suggestions",
-          value: suggestions,
-        });
-
-        this._outputChannel.appendLine(`Input: ${text}`);
-        this._outputChannel.appendLine(`Style: ${style}`);
-        this._outputChannel.appendLine(`Concept: ${concept}`);
-        this._outputChannel.appendLine(`Count: ${count}`);
-        this._outputChannel.appendLine(`Suggestions:`);
-        suggestions.forEach((suggestion, index) => {
-          this._outputChannel.appendLine(`${index + 1}. ${suggestion}`);
-        });
-        this._outputChannel.appendLine("---");
-        this._outputChannel.show();
-      } catch (error) {
-        this.handleError(error);
-      }
-    } else {
+    if (!apiKey) {
       vscode.window.showErrorMessage(
         "API key is not set. Please set it in the settings."
       );
+      return;
     }
+
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        const USER_PROMPT = `Suggest ${count} variable names for: ${text}. 
+Use the ${style} naming style and the ${concept} concept.
+Respond with a valid JSON array of strings containing only the variable names, without any additional formatting or explanation.`;
+
+        const requestBody = {
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: this.SYSTEM_PROMPT },
+            { role: "user", content: USER_PROMPT },
+          ],
+          max_tokens: 150,
+        };
+
+        this._outputChannel.appendLine("Full API Request:");
+        this._outputChannel.appendLine(JSON.stringify(requestBody, null, 2));
+        this._outputChannel.appendLine("---");
+
+        const response = await axios.post(
+          "https://api.openai.com/v1/chat/completions",
+          requestBody,
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        this._outputChannel.appendLine("Full API Response:");
+        this._outputChannel.appendLine(JSON.stringify(response.data, null, 2));
+        this._outputChannel.appendLine("---");
+
+        if (
+          response.data &&
+          response.data.choices &&
+          response.data.choices.length > 0
+        ) {
+          const content = response.data.choices[0].message.content.trim();
+
+          let suggestions: string[];
+          try {
+            suggestions = JSON.parse(content);
+          } catch (parseError) {
+            // If JSON parsing fails, try to extract array from the content
+            const match = content.match(/\[.*\]/s);
+            if (match) {
+              suggestions = JSON.parse(match[0]);
+            } else {
+              throw new Error(
+                `Failed to parse response as JSON: ${parseError}`
+              );
+            }
+          }
+
+          if (
+            Array.isArray(suggestions) &&
+            suggestions.every((item) => typeof item === "string")
+          ) {
+            suggestions = suggestions.slice(0, count);
+            this._view?.webview.postMessage({
+              type: "suggestions",
+              value: suggestions,
+            });
+
+            this._outputChannel.appendLine(`Input: ${text}`);
+            this._outputChannel.appendLine(`Style: ${style}`);
+            this._outputChannel.appendLine(`Concept: ${concept}`);
+            this._outputChannel.appendLine(`Count: ${count}`);
+            this._outputChannel.appendLine(`Suggestions:`);
+            suggestions.forEach((suggestion, index) => {
+              this._outputChannel.appendLine(`${index + 1}. ${suggestion}`);
+            });
+            this._outputChannel.appendLine("---");
+            this._outputChannel.show();
+
+            return;
+          } else {
+            throw new Error("Invalid response format: not an array of strings");
+          }
+        } else {
+          throw new Error("Invalid API response format");
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+          const waitTime = this.extractRetryAfterTime(
+            error.response.headers["retry-after"]
+          );
+          this._outputChannel.appendLine(
+            `Rate limited. Waiting for ${waitTime} seconds before retry.`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime * 1000));
+          retries++;
+        } else {
+          this.handleError(error);
+          return;
+        }
+      }
+    }
+
+    vscode.window.showErrorMessage(
+      "Max retries reached. Failed to get suggestions."
+    );
   }
-  private async getConfig(): Promise<{
-    apiKey: string | undefined;
-    suggestionCount: number;
-  }> {
+
+  private async getConfig(): Promise<{ apiKey: string | undefined }> {
     const config = vscode.workspace.getConfiguration("vscode-namer");
     let apiKey = config.get<string>("apiKey");
-    const suggestionCount = config.get<number>("suggestionCount") || 5;
 
     if (!apiKey) {
       apiKey = await vscode.window.showInputBox({
@@ -118,97 +192,7 @@ Example response format: ["variableName1", "variableName2", "variableName3"]`;
       }
     }
 
-    return { apiKey, suggestionCount };
-  }
-
-  private async getSuggestionsWithRetry(
-    text: string,
-    apiKey: string,
-    count: number,
-    style: string,
-    concept: string,
-    maxRetries = 3
-  ): Promise<string[]> {
-    let retries = 0;
-    while (retries < maxRetries) {
-      try {
-        const USER_PROMPT = `Suggest ${count} variable names for: ${text}. 
-Use the ${style} naming style and the ${concept} concept.
-Respond with a valid JSON array of strings containing only the variable names.`;
-
-        const requestBody = {
-          //TODO: 모델 선택 기능 추가
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: this.SYSTEM_PROMPT },
-            { role: "user", content: USER_PROMPT },
-          ],
-          max_tokens: 150,
-        };
-
-        // Log the full API request
-        this._outputChannel.appendLine("Full API Request:");
-        this._outputChannel.appendLine(JSON.stringify(requestBody, null, 2));
-        this._outputChannel.appendLine("---");
-
-        const response = await axios.post(
-          "https://api.openai.com/v1/chat/completions",
-          requestBody,
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (
-          response.data &&
-          response.data.choices &&
-          response.data.choices.length > 0
-        ) {
-          const content = response.data.choices[0].message.content;
-
-          this._outputChannel.appendLine("Full API Response:");
-          this._outputChannel.appendLine(
-            JSON.stringify(response.data, null, 2)
-          );
-          this._outputChannel.appendLine("---");
-
-          try {
-            const suggestions = JSON.parse(content);
-            if (
-              Array.isArray(suggestions) &&
-              suggestions.every((item) => typeof item === "string")
-            ) {
-              return suggestions.slice(0, count);
-            } else {
-              throw new Error(
-                "Invalid response format: not an array of strings"
-              );
-            }
-          } catch (parseError) {
-            throw new Error(`Failed to parse response as JSON: ${parseError}`);
-          }
-        } else {
-          throw new Error("Invalid API response format");
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 429) {
-          const waitTime = this.extractRetryAfterTime(
-            error.response.headers["retry-after"]
-          );
-          this._outputChannel.appendLine(
-            `Rate limited. Waiting for ${waitTime} seconds before retry.`
-          );
-          await new Promise((resolve) => setTimeout(resolve, waitTime * 1000));
-          retries++;
-        } else {
-          throw error;
-        }
-      }
-    }
-    throw new Error("Max retries reached");
+    return { apiKey };
   }
 
   private extractRetryAfterTime(retryAfter: string | undefined): number {

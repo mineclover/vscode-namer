@@ -1,22 +1,28 @@
-# 유틸 모음
+# 함수명 추천 확장 프로그램
 
-## css에 선언된 클래스들을 복사하거나 d.ts 파일로 만드는 확장
+api는 openai api 키를 사용함
+모델은 gpt4o-mini
 
-"CSS to Typed: create a css class type"
-"CSS to Typed: copy a css class type"
+평균 사용 토큰은 아래와 같음
+대략 만번 쓰면 200원 나온다
+US$0.150 / 1M input tokens
 
-## 생략 없는 타입 추론 결과를 복사할 수 있는 확장
-
-호버 시 복사 버튼이 생성됨
-CSS to Typed : "Show inferred type on hover" 옵션을 키면 결과가 호버에도 나옴
-
-타입이 잘 안보인다 싶으면 Prettify 랑 같이 쓰면 좋다
-
-```ts
-export type Prettify<T> = {
-  [K in keyof T]: T[K];
-} & {};
+```json
+"usage": {
+  "prompt_tokens": 85,
+  "completion_tokens": 28,
+  "total_tokens": 113
+},
 ```
+
+## preview
+
+![](./docs/a.png)
+text 스타일과 컨셉을 잡을 수 있음
+컨셉은 기본, 전문가, 학생, 힙스터 , 의미론적
+현재 응답 결과가 ```json으로 넘어와서 예외처리 시켜줘야함
+
+"content": "`json\n[\"previewVibes\", \"hipsterPreview\", \"chillPreview\", \"trendyPreview\", \"aestheticPreview\"]\n`"
 
 ## 개발 시 참고
 
@@ -25,4 +31,5 @@ engines 버전 맞추기 필수
 
 npm run compile
 vsce package patch
-code --install-extension css-to-typed-0.1.14.vsix
+
+code --install-extension vscode-namer-0.0.4.vsix
