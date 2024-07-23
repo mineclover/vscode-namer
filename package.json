@@ -2,7 +2,7 @@
   "name": "vscode-namer",
   "displayName": "VSCode Namer",
   "description": "Suggests variable names using GPT API",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "mineclover",
   "private": true,
   "repository": {
