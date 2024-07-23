@@ -1,76 +1,73 @@
 body {
   font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  padding: 10px;
   background-color: var(--vscode-editor-background);
-  color: var(--vscode-editor-foreground);
-  padding: 0;
-  margin: 0;
 }
 
 .container {
-  max-width: 100%;
-  padding: 16px;
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-#input,
-#namingStyle,
-#namingConcept,
-#suggestionCount,
-#suggest {
-  width: 100%;
-  padding: 5px;
-  margin-bottom: 10px;
-  box-sizing: border-box;
-  height: 30px;
-}
-
-#input,
-#namingStyle,
-#namingConcept,
-#suggestionCount {
+select,
+input,
+button {
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
+  padding: 5px;
+  font-size: var(--vscode-font-size);
 }
 
-#suggest {
+button {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
   cursor: pointer;
-  text-align: center;
-  line-height: 20px;
+  padding: 5px 10px;
 }
 
-#suggest:hover {
+button:hover {
   background-color: var(--vscode-button-hoverBackground);
 }
 
+#suggestions {
+  margin-top: 10px;
+}
+
 .suggestion {
-  margin-bottom: 10px;
-  padding: 5px;
-  background-color: rgba(var(--vscode-editor-background), 0.7);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 3px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  background-color: var(--vscode-input-background);
+  margin-bottom: 5px;
+  border-radius: 3px;
 }
 
 .suggestion button {
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
-  border: none;
-  padding: 2px 5px;
-  cursor: pointer;
-  height: 24px;
 }
 
 .suggestion button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ai-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#explanationPrompt {
+  display: none;
+}
+
+#copyPrompt {
+  margin-top: 10px;
 }

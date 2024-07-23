@@ -46,8 +46,29 @@ export class VariableNameSuggesterViewProvider
           vscode.env.clipboard.writeText(data.value);
           vscode.window.showInformationMessage(`Copied: ${data.value}`);
           break;
+        case "copyPrompt":
+          vscode.env.clipboard.writeText(data.value);
+          vscode.window.showInformationMessage("Prompt copied to clipboard");
+          break;
+        case "openLink":
+          vscode.env.openExternal(vscode.Uri.parse(data.url));
+          break;
+        case "info":
+          vscode.window.showInformationMessage(data.value);
+          break;
       }
     });
+  }
+
+  private generateUserPrompt(
+    text: string,
+    style: string,
+    concept: string,
+    count: number
+  ): string {
+    return `Suggest ${count} variable names for: ${text}. 
+Use the ${style} naming style and the ${concept} concept.
+Respond with a valid JSON array of strings containing only the variable names, without any additional formatting or explanation.`;
   }
 
   private async getSuggestions(
@@ -69,17 +90,20 @@ export class VariableNameSuggesterViewProvider
 
     while (retries < maxRetries) {
       try {
-        const USER_PROMPT = `Suggest ${count} variable names for: ${text}. 
-Use the ${style} naming style and the ${concept} concept.
-Respond with a valid JSON array of strings containing only the variable names, without any additional formatting or explanation.`;
+        const USER_PROMPT = this.generateUserPrompt(
+          text,
+          style,
+          concept,
+          count
+        );
 
         const requestBody = {
-          model: "gpt-3.5-turbo",
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: this.SYSTEM_PROMPT },
             { role: "user", content: USER_PROMPT },
           ],
-          max_tokens: 150,
+          max_tokens: 200,
         };
 
         this._outputChannel.appendLine("Full API Request:");
@@ -131,6 +155,7 @@ Respond with a valid JSON array of strings containing only the variable names, w
             this._view?.webview.postMessage({
               type: "suggestions",
               value: suggestions,
+              userPrompt: USER_PROMPT,
             });
 
             this._outputChannel.appendLine(`Input: ${text}`);
@@ -230,15 +255,12 @@ Respond with a valid JSON array of strings containing only the variable names, w
         </head>
         <body>
             <div class="container">
-                <label for="namingStyle">Naming Style:</label>
                 <select id="namingStyle">
                     <option value="camelCase">camelCase</option>
                     <option value="PascalCase">PascalCase</option>
                     <option value="snake_case">snake_case</option>
                     <option value="kebab-case">kebab-case</option>
                 </select>
-
-                <label for="namingConcept">Naming Concept:</label>
                 <select id="namingConcept">
                     <option value="default">Default</option>
                     <option value="hipster">Hipster</option>
@@ -247,13 +269,18 @@ Respond with a valid JSON array of strings containing only the variable names, w
                     <option value="abstract">Abstract</option>
                     <option value="semantic">Semantic</option>
                 </select>
-
-                <label for="suggestionCount">Number of Suggestions:</label>
-                <input type="number" id="suggestionCount" min="1" max="20" value="5">
-
+                <input type="number" id="suggestionCount" min="1" max="20" value="5" placeholder="Number of suggestions">
                 <input id="input" type="text" placeholder="Enter description for variable">
                 <button id="suggest">Suggest Names</button>
                 <div id="suggestions"></div>
+                
+                <div class="ai-buttons">
+                    <button id="geminiBtn">Gemini</button>
+                    <button id="gptBtn">GPT</button>
+                    <button id="claudeBtn">Claude</button>
+                </div>
+                <textarea id="explanationPrompt" readonly></textarea>
+                <button id="copyPrompt">Copy Explanation Prompt</button>
             </div>
             <script src="${scriptUri}"></script>
         </body>
